@@ -34,6 +34,7 @@ interface FactCardProps {
 const FactCard = ({ claim, index }: FactCardProps) => {
   const config = verdictConfig[claim.verdict];
   const Icon = config.icon;
+  const confidencePercent = Math.round((claim.confidence ?? 0.5) * 100);
 
   return (
     <motion.div
@@ -47,9 +48,12 @@ const FactCard = ({ claim, index }: FactCardProps) => {
           <Icon className={`w-5 h-5 ${config.colorClass}`} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-3 mb-2">
             <span className={`text-xs font-mono font-semibold uppercase tracking-wider ${config.colorClass}`}>
               {config.label}
+            </span>
+            <span className="text-xs font-mono text-muted-foreground">
+              {confidencePercent}% confidence
             </span>
           </div>
           <p className="text-sm font-mono text-foreground/90 mb-3 leading-relaxed">
