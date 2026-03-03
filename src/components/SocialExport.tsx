@@ -2,29 +2,32 @@ import { useState } from "react";
 import { Copy, Check, Linkedin, Twitter } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import type { Claim } from "@/types/claims";
+import type { Claim, ContentType } from "@/types/claims";
 
 interface SocialExportProps {
   claims: Claim[];
+  contentType?: ContentType | null;
 }
 
-const generateDraft = (claims: Claim[], platform: "linkedin" | "twitter") => {
+const generateDraft = (claims: Claim[], platform: "linkedin" | "twitter", contentType?: ContentType | null) => {
   const emoji = { Verified: "✅", Exaggerated: "⚠️", False: "❌" };
   const lines = claims.map(
     (c) => `${emoji[c.verdict]} ${c.original_claim}\n→ ${c.evidence_summary}`
   );
 
+  const typeLabel = contentType ? `this ${contentType.toLowerCase()}` : "this transcript";
+
   if (platform === "twitter") {
-    return `🔍 Fact-checked this transcript with TruthLens:\n\n${lines.join("\n\n")}\n\n#FactCheck #TruthLens`;
+    return `🔍 Fact-checked ${typeLabel} with TruthLens:\n\n${lines.join("\n\n")}\n\n#FactCheck #TruthLens`;
   }
-  return `🔍 I ran a transcript through TruthLens — here's what the data says:\n\n${lines.join("\n\n")}\n\nAlways verify the vibes. 🧠\n\n#FactCheck #TruthLens #CriticalThinking`;
+  return `🔍 I ran ${typeLabel} through TruthLens — here's what the data says:\n\n${lines.join("\n\n")}\n\nAlways verify the vibes. 🧠\n\n#FactCheck #TruthLens #CriticalThinking`;
 };
 
-const SocialExport = ({ claims }: SocialExportProps) => {
+const SocialExport = ({ claims, contentType }: SocialExportProps) => {
   const [copied, setCopied] = useState<string | null>(null);
   const [platform, setPlatform] = useState<"linkedin" | "twitter">("linkedin");
 
-  const draft = generateDraft(claims, platform);
+  const draft = generateDraft(claims, platform, contentType);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(draft);

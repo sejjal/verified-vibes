@@ -25,14 +25,26 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a fact-checking AI. Given a transcript, you must:
-1. Extract exactly 3 specific, verifiable factual claims from the text.
-2. For each claim, assess its truthfulness based on your knowledge (use the most recent data available, especially 2025-2026 data).
-3. Provide a verdict: "Verified" (claim is accurate), "Exaggerated" (partially true but misleading), or "False" (claim is incorrect).
-4. Write a concise evidence summary (1-2 sentences) explaining your assessment.
-5. Provide a relevant source URL when possible (use reputable sources like Wikipedia, Reuters, government sites, etc.).
+    const systemPrompt = `You are a rigorous fact-checking AI analyst. Given a transcript, you must:
 
-You MUST respond using the suggest_claims tool. Do not write any other text.`;
+1. IDENTIFY THE CONTENT TYPE: Determine what kind of content this transcript is from. Options: "Podcast", "Standup Comedy", "News Report", "Interview", "Speech", "Debate", "Lecture", "Other".
+
+2. PROVIDE A BRIEF SUMMARY: Write 1-2 sentences describing what the transcript is about (topic, speakers if identifiable, context).
+
+3. EXTRACT EXACTLY 3 SPECIFIC, VERIFIABLE FACTUAL CLAIMS from the text. Focus on:
+   - Statistics, numbers, dates, and quantitative claims
+   - Historical facts and events
+   - Scientific or technical claims
+   - Named entities and their attributes
+   - Do NOT pick opinions, jokes, or subjective statements
+
+4. For each claim, RIGOROUSLY VERIFY it:
+   - verdict: "Verified" (the claim is factually accurate), "Exaggerated" (contains a kernel of truth but is misleading or inflated), or "False" (the claim is factually incorrect)
+   - evidence_summary: Write 2-3 sentences explaining WHY the claim is verified/exaggerated/false. Include the CORRECT data or figure if the claim is wrong or exaggerated. Be specific — cite actual numbers, dates, or facts.
+   - source_url: Provide a REAL, working URL to a reputable source that supports your evidence. Use well-known domains like wikipedia.org, reuters.com, bbc.com, nature.com, gov sites, etc. The URL must be a real page that exists — do NOT fabricate URLs.
+   - confidence: A number from 0.0 to 1.0 indicating how confident you are in the verdict.
+
+You MUST respond using the verify_transcript tool. Do not write any other text.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -50,11 +62,20 @@ You MUST respond using the suggest_claims tool. Do not write any other text.`;
           {
             type: "function",
             function: {
-              name: "suggest_claims",
-              description: "Return exactly 3 fact-checked claims from the transcript.",
+              name: "verify_transcript",
+              description: "Return the content type, summary, and exactly 3 rigorously fact-checked claims from the transcript.",
               parameters: {
                 type: "object",
                 properties: {
+                  content_type: {
+                    type: "string",
+                    enum: ["Podcast", "Standup Comedy", "News Report", "Interview", "Speech", "Debate", "Lecture", "Other"],
+                    description: "The type of content this transcript is from",
+                  },
+                  content_summary: {
+                    type: "string",
+                    description: "1-2 sentence summary of the transcript content and context",
+                  },
                   claims: {
                     type: "array",
                     items: {
@@ -62,21 +83,22 @@ You MUST respond using the suggest_claims tool. Do not write any other text.`;
                       properties: {
                         original_claim: { type: "string", description: "The exact claim extracted from the transcript" },
                         verdict: { type: "string", enum: ["Verified", "Exaggerated", "False"] },
-                        evidence_summary: { type: "string", description: "1-2 sentence summary of evidence" },
-                        source_url: { type: "string", description: "URL to a reputable source" },
+                        evidence_summary: { type: "string", description: "2-3 sentences explaining the verdict with specific data and corrections if needed" },
+                        source_url: { type: "string", description: "A real, working URL to a reputable source" },
+                        confidence: { type: "number", description: "Confidence in the verdict from 0.0 to 1.0" },
                       },
-                      required: ["original_claim", "verdict", "evidence_summary", "source_url"],
+                      required: ["original_claim", "verdict", "evidence_summary", "source_url", "confidence"],
                       additionalProperties: false,
                     },
                   },
                 },
-                required: ["claims"],
+                required: ["content_type", "content_summary", "claims"],
                 additionalProperties: false,
               },
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "suggest_claims" } },
+        tool_choice: { type: "function", function: { name: "verify_transcript" } },
       }),
     });
 
@@ -108,7 +130,11 @@ You MUST respond using the suggest_claims tool. Do not write any other text.`;
     const parsed = JSON.parse(toolCall.function.arguments);
 
     return new Response(
-      JSON.stringify({ claims: parsed.claims }),
+      JSON.stringify({
+        content_type: parsed.content_type,
+        content_summary: parsed.content_summary,
+        claims: parsed.claims,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
