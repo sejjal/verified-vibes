@@ -6,6 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const CONTENT_TYPES = [
+  "Podcast",
+  "Standup Comedy",
+  "News Report",
+  "Interview",
+  "Speech",
+  "Debate",
+  "Lecture",
+  "Other",
+] as const;
+
+const normalizeText = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -20,33 +38,32 @@ serve(async (req) => {
       );
     }
 
+    const looksLikeLinkOnly = /https?:\/\//i.test(transcript) && transcript.trim().split(/\s+/).length < 15;
+    if (looksLikeLinkOnly) {
+      return new Response(
+        JSON.stringify({ error: "Please paste transcript text (not just a link) so claims can be verified accurately." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a rigorous, skeptical fact-checking AI analyst. Your goal is to find EVERY factual claim and especially catch false or misleading ones. Given a transcript, you must:
+    const systemPrompt = `You are a rigorous, skeptical fact-checking AI analyst. Your goal is to find false or misleading claims, but ONLY from the provided transcript text.
 
-1. IDENTIFY THE CONTENT TYPE: Options: "Podcast", "Standup Comedy", "News Report", "Interview", "Speech", "Debate", "Lecture", "Other".
+Rules you must follow:
+1) Use ONLY information explicitly stated in the transcript. Never invent, infer, or add claims that are not present.
+2) Extract EVERY verifiable factual claim from the transcript (not only 3).
+3) If the transcript has no verifiable factual claims, return claims as an empty array [].
+4) original_claim must be a verbatim quote from the transcript.
+5) Be extra skeptical with numbers, dates, and statistics. If anything is off, use Exaggerated or False.
 
-2. PROVIDE A BRIEF SUMMARY: 1-2 sentences about the transcript.
-
-3. EXTRACT **EVERY SINGLE** SPECIFIC, VERIFIABLE FACTUAL CLAIM from the text. Do NOT limit to 3 — extract ALL of them, even if there are 10, 15, or more. Include:
-   - Statistics, numbers, dates, quantitative claims
-   - Historical facts and events
-   - Scientific or technical claims
-   - Named entities and their attributes
-   - Geographic, demographic, or economic claims
-   - Any statement presented as fact
-   - Do NOT pick opinions, jokes, or subjective statements
-
-4. For each claim, RIGOROUSLY VERIFY with a SKEPTICAL eye. Assume claims might be wrong and actively look for errors:
-   - verdict: "Verified", "Exaggerated", or "False"
-   - evidence_summary: 2-3 sentences with the CORRECT data if the claim is wrong. Be specific.
-   - source_url: A REAL URL to a reputable source (wikipedia.org, reuters.com, bbc.com, etc.)
-   - confidence: 0.0 to 1.0
-
-IMPORTANT: Be EXTRA skeptical. Double-check numbers, dates, and statistics carefully. If something seems slightly off, mark it as Exaggerated or False.
+Return:
+- content_type: one of Podcast, Standup Comedy, News Report, Interview, Speech, Debate, Lecture, Other
+- content_summary: 1-2 sentence summary
+- claims: array of objects with original_claim, verdict (Verified | Exaggerated | False), evidence_summary (2-3 sentences), source_url (real working URL), confidence (0.0-1.0)
 
 You MUST respond using the verify_transcript tool.`;
 
@@ -82,10 +99,11 @@ You MUST respond using the verify_transcript tool.`;
                   },
                   claims: {
                     type: "array",
+                    description: "All verifiable factual claims found in the transcript. Can be empty when none are present.",
                     items: {
                       type: "object",
                       properties: {
-                        original_claim: { type: "string", description: "The exact claim extracted from the transcript" },
+                        original_claim: { type: "string", description: "Exact verbatim quote from the transcript" },
                         verdict: { type: "string", enum: ["Verified", "Exaggerated", "False"] },
                         evidence_summary: { type: "string", description: "2-3 sentences explaining the verdict with specific data and corrections if needed" },
                         source_url: { type: "string", description: "A real, working URL to a reputable source" },
@@ -132,12 +150,33 @@ You MUST respond using the verify_transcript tool.`;
     }
 
     const parsed = JSON.parse(toolCall.function.arguments);
+    const transcriptNormalized = normalizeText(transcript);
+
+    const safeClaims = Array.isArray(parsed?.claims)
+      ? parsed.claims.filter((claim: any) => {
+          if (!claim || typeof claim.original_claim !== "string") return false;
+          const claimNormalized = normalizeText(claim.original_claim);
+          if (!claimNormalized) return false;
+          return transcriptNormalized.includes(claimNormalized);
+        })
+      : [];
+
+    const safeContentType = CONTENT_TYPES.includes(parsed?.content_type)
+      ? parsed.content_type
+      : "Other";
+
+    const safeSummary =
+      typeof parsed?.content_summary === "string" && parsed.content_summary.trim().length > 0
+        ? parsed.content_summary
+        : safeClaims.length === 0
+          ? "No verifiable factual claims were explicitly found in the provided transcript text."
+          : "";
 
     return new Response(
       JSON.stringify({
-        content_type: parsed.content_type,
-        content_summary: parsed.content_summary,
-        claims: parsed.claims,
+        content_type: safeContentType,
+        content_summary: safeSummary,
+        claims: safeClaims,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

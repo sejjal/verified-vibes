@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { forwardRef, useState } from "react";
 import { Copy, Check, Linkedin, Twitter } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ const generateDraft = (claims: Claim[], platform: "linkedin" | "twitter", conten
   return `🔍 I ran ${typeLabel} through TruthLens — here's what the data says:\n\n${lines.join("\n\n")}\n\nAlways verify the vibes. 🧠\n\n#FactCheck #TruthLens #CriticalThinking`;
 };
 
-const SocialExport = ({ claims, contentType }: SocialExportProps) => {
+const SocialExport = forwardRef<HTMLDivElement, SocialExportProps>(({ claims, contentType }, ref) => {
   const [copied, setCopied] = useState<string | null>(null);
   const [platform, setPlatform] = useState<"linkedin" | "twitter">("linkedin");
 
@@ -37,6 +37,7 @@ const SocialExport = ({ claims, contentType }: SocialExportProps) => {
 
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.5 }}
@@ -94,6 +95,8 @@ const SocialExport = ({ claims, contentType }: SocialExportProps) => {
       </div>
     </motion.div>
   );
-};
+});
+
+SocialExport.displayName = "SocialExport";
 
 export default SocialExport;
