@@ -25,26 +25,30 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a rigorous fact-checking AI analyst. Given a transcript, you must:
+    const systemPrompt = `You are a rigorous, skeptical fact-checking AI analyst. Your goal is to find EVERY factual claim and especially catch false or misleading ones. Given a transcript, you must:
 
-1. IDENTIFY THE CONTENT TYPE: Determine what kind of content this transcript is from. Options: "Podcast", "Standup Comedy", "News Report", "Interview", "Speech", "Debate", "Lecture", "Other".
+1. IDENTIFY THE CONTENT TYPE: Options: "Podcast", "Standup Comedy", "News Report", "Interview", "Speech", "Debate", "Lecture", "Other".
 
-2. PROVIDE A BRIEF SUMMARY: Write 1-2 sentences describing what the transcript is about (topic, speakers if identifiable, context).
+2. PROVIDE A BRIEF SUMMARY: 1-2 sentences about the transcript.
 
-3. EXTRACT EXACTLY 3 SPECIFIC, VERIFIABLE FACTUAL CLAIMS from the text. Focus on:
-   - Statistics, numbers, dates, and quantitative claims
+3. EXTRACT **EVERY SINGLE** SPECIFIC, VERIFIABLE FACTUAL CLAIM from the text. Do NOT limit to 3 — extract ALL of them, even if there are 10, 15, or more. Include:
+   - Statistics, numbers, dates, quantitative claims
    - Historical facts and events
    - Scientific or technical claims
    - Named entities and their attributes
+   - Geographic, demographic, or economic claims
+   - Any statement presented as fact
    - Do NOT pick opinions, jokes, or subjective statements
 
-4. For each claim, RIGOROUSLY VERIFY it:
-   - verdict: "Verified" (the claim is factually accurate), "Exaggerated" (contains a kernel of truth but is misleading or inflated), or "False" (the claim is factually incorrect)
-   - evidence_summary: Write 2-3 sentences explaining WHY the claim is verified/exaggerated/false. Include the CORRECT data or figure if the claim is wrong or exaggerated. Be specific — cite actual numbers, dates, or facts.
-   - source_url: Provide a REAL, working URL to a reputable source that supports your evidence. Use well-known domains like wikipedia.org, reuters.com, bbc.com, nature.com, gov sites, etc. The URL must be a real page that exists — do NOT fabricate URLs.
-   - confidence: A number from 0.0 to 1.0 indicating how confident you are in the verdict.
+4. For each claim, RIGOROUSLY VERIFY with a SKEPTICAL eye. Assume claims might be wrong and actively look for errors:
+   - verdict: "Verified", "Exaggerated", or "False"
+   - evidence_summary: 2-3 sentences with the CORRECT data if the claim is wrong. Be specific.
+   - source_url: A REAL URL to a reputable source (wikipedia.org, reuters.com, bbc.com, etc.)
+   - confidence: 0.0 to 1.0
 
-You MUST respond using the verify_transcript tool. Do not write any other text.`;
+IMPORTANT: Be EXTRA skeptical. Double-check numbers, dates, and statistics carefully. If something seems slightly off, mark it as Exaggerated or False.
+
+You MUST respond using the verify_transcript tool.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
