@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Claim } from "@/types/claims";
@@ -31,13 +32,14 @@ interface FactCardProps {
   index: number;
 }
 
-const FactCard = ({ claim, index }: FactCardProps) => {
+const FactCard = forwardRef<HTMLDivElement, FactCardProps>(({ claim, index }, ref) => {
   const config = verdictConfig[claim.verdict];
   const Icon = config.icon;
   const confidencePercent = Math.round((claim.confidence ?? 0.5) * 100);
 
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.15 }}
@@ -77,6 +79,8 @@ const FactCard = ({ claim, index }: FactCardProps) => {
       </div>
     </motion.div>
   );
-};
+});
+
+FactCard.displayName = "FactCard";
 
 export default FactCard;
