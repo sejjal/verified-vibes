@@ -67,7 +67,7 @@ You MUST respond using the verify_transcript tool.`;
             type: "function",
             function: {
               name: "verify_transcript",
-              description: "Return the content type, summary, and exactly 3 rigorously fact-checked claims from the transcript.",
+              description: "Return the content type, summary, and ALL rigorously fact-checked claims from the transcript.",
               parameters: {
                 type: "object",
                 properties: {
