@@ -43,7 +43,12 @@ const Index = () => {
         setClaims(data.claims);
         setContentType(data.content_type || "Other");
         setContentSummary(data.content_summary || "");
-        toast.success(`Found and verified ${data.claims.length} claims`);
+
+        if (data.claims.length > 0) {
+          toast.success(`Found and verified ${data.claims.length} claims`);
+        } else {
+          toast.info("No verifiable factual claims found in the provided transcript.");
+        }
       } else {
         throw new Error("Invalid response format");
       }
